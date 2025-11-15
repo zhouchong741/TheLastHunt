@@ -15,7 +15,7 @@ class MonitorManager {
 
   async monitorUrl(urlInfo) {
     const { url, name } = urlInfo;
-    const startTime = Date.now();
+    const startTime = Date.now().toLocaleString();
     
     try {
       logger.info(`Starting monitoring for: ${name} (${url})`);
@@ -28,11 +28,11 @@ class MonitorManager {
       );
       
       // 获取之前的数据
-      const previousData = await this.storage.loadData(url);
+      const previousData = await this.storage.loadData(urlInfo);
       const previousCount = previousData ? previousData.product_count : 0;
       
       // 保存新数据
-      const newData = await this.storage.saveData(url, currentCount);
+      const newData = await this.storage.saveData(urlInfo, currentCount);
       
       // 检查是否有变化
       if (previousData && currentCount !== previousCount) {

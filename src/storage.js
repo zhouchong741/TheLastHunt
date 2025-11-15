@@ -18,36 +18,51 @@ class DataStorage {
     }
   }
 
-  generateFileName(url) {
-    const hash = crypto.createHash('md5').update(url).digest('hex');
-    return `${hash}.json`;
+  generateFileName(name) {
+    // Sanitize the name to be used as a filename
+    const sanitizedName = name.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+    return `${sanitizedName}.json`;
   }
 
-  async saveData(url, productCount) {
+  async saveData(urlInfo, productCount) {
+    const { name, url } = urlInfo;
+    const fileName = this.generateFileName(name);
+    const filePath = path.join(this.dataDirectory, fileName);
+    const tempFilePath = filePath + '.tmp';
+
     try {
-      const fileName = this.generateFileName(url);
-      const filePath = path.join(this.dataDirectory, fileName);
-      
       const data = {
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        timestamp: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
         product_count: productCount,
-        url: url
+        url: url,
+        name: name
       };
 
-      await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+      await fs.writeFile(tempFilePath, JSON.stringify(data, null, 2), 'utf8');
+      await fs.rename(tempFilePath, filePath);
+
       logger.info(`Saved data to ${filePath}: ${JSON.stringify(data)}`);
       return data;
     } catch (error) {
       logger.error(`Error saving data for ${url}: ${error.message}`);
+      // Attempt to clean up the temporary file if an error occurs
+      try {
+        await fs.unlink(tempFilePath);
+      } catch (cleanupError) {
+        if (cleanupError.code !== 'ENOENT') {
+          logger.warn(`Failed to clean up temporary file ${tempFilePath}: ${cleanupError.message}`);
+        }
+      }
       throw error;
     }
   }
 
-  async loadData(url) {
+  async loadData(urlInfo) {
+    const { name, url } = urlInfo;
     try {
-      const fileName = this.generateFileName(url);
+      const fileName = this.generateFileName(name);
       const filePath = path.join(this.dataDirectory, fileName);
-      
+
       const data = await fs.readFile(filePath, 'utf8');
       return JSON.parse(data);
     } catch (error) {
@@ -88,9 +103,10 @@ class DataStorage {
     return allData;
   }
 
-  async deleteData(url) {
+  async deleteData(urlInfo) {
+    const { name, url } = urlInfo;
     try {
-      const fileName = this.generateFileName(url);
+      const fileName = this.generateFileName(name);
       const filePath = path.join(this.dataDirectory, fileName);
       await fs.unlink(filePath);
       logger.info(`Deleted data file for ${url}`);

@@ -9,12 +9,11 @@ class DingTalkNotifier {
   async sendNotification(urlData) {
     try {
       const message = this.formatMessage(urlData);
-      
+
       const response = await axios.post(this.webhookUrl, {
         msgtype: 'markdown',
         markdown: {
-          // 使用每个urlData的name
-          title: `${urlData.name} 产品数量更新`,
+          title: `产品数量更新`,
           text: message
         }
       });
@@ -34,25 +33,13 @@ class DingTalkNotifier {
 
   formatMessage(urlData) {
     const { url, name, oldCount, newCount, timestamp } = urlData;
-    const changeType = newCount > oldCount ? '增加' : '减少';
+    const changeType = newCount > oldCount ? '+' : '-';
     const changeAmount = Math.abs(newCount - oldCount);
-    
-    return `## 🚨 产品数量变化通知
-
-**监控网址：** ${name}  
-**URL：** ${url}  
-
-**变更详情：**
-- 变更前数量：${oldCount}
-- 变更后数量：${newCount}
-- 变化类型：${changeType} ${changeAmount}
-- 变更时间：${timestamp}
-
-**当前状态：**
-- ✅ 最新产品数量：${newCount}
-
----
-*本通知由自动化监控系统发送* 📊`;
+    return `### ${name} 产品数量变化通知
+> **时间**：${timestamp}  
+> **之前**：${oldCount} 现在：${newCount}  
+> **变化**：(${changeType} ${changeAmount})  
+> [点击查看](${url})`;
   }
 
   async sendTestNotification() {
@@ -61,7 +48,8 @@ class DingTalkNotifier {
       name: '测试网址',
       oldCount: 100,
       newCount: 105,
-      timestamp: new Date().toLocaleString('zh-CN')
+      // 时间时区不对 差8小时 设置时区为东8区
+      timestamp: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
     };
 
     logger.info('Sending test notification...');
@@ -73,7 +61,7 @@ class DingTalkNotifier {
       const message = `## ❌ 监控错误通知
 
 **监控网址：** ${url}  
-**错误时间：** ${new Date().toLocaleString('zh-CN')}  
+**错误时间：** ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}  
 
 **错误信息：**
 \`\`\`
