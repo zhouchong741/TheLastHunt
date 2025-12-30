@@ -2,19 +2,19 @@
     "monitoring_urls": [
         {
             "name": "Patagonia Products",
-            "url": "https://www.thelasthunt.com/search?query=patagonia"
+            "url": "https://www.thelasthunt.com/c/patagonia"
         },
         {
             "name": "Icebreaker Products",
-            "url": "https://www.thelasthunt.com/search?query=icebreaker"
+            "url": "https://www.thelasthunt.com/c/icebreaker"
         },
         {
             "name": "The North Face Products",
-            "url": "https://www.thelasthunt.com/search?query=the north face"
+            "url": "https://www.thelasthunt.com/c/the-north-face"
         },
         {
             "name": "MountainHardwear Products",
-            "url": "https://www.thelasthunt.com/search?query=mountainhardwear"
+            "url": "https://www.thelasthunt.com/c/mountain-hardwear"
         }
     ],
     "monitoring_interval_minutes": 30,
