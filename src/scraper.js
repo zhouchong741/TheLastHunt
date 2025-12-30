@@ -14,7 +14,7 @@ class WebScraper {
     const { url, xpath: xpathQuery } = urlInfo;
     let lastError;
 
-    for (let attempt = 1; attempt < maxRetries; attempt++) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         logger.info(`Attempting to scrape URL: ${url} (Attempt ${attempt}/${maxRetries})`);
 
@@ -75,7 +75,29 @@ class WebScraper {
     const $ = cheerio.load(html);
     let productCount = 0;
 
-    // ... (existing Cheerio extraction logic) ...
+    // Try to find the count in h1 (common for search results)
+    $('h1').each((i, el) => {
+      const text = $(el).text().trim();
+      const count = this.parseProductCount(text);
+      if (count > 0) {
+        productCount = count;
+        return false; // break loop
+      }
+    });
+
+    // Fallback: search for text containing "results" or "products"
+    if (productCount === 0) {
+      $('span, div, p').each((i, el) => {
+        const text = $(el).text().trim();
+        if (text.includes('results') || text.includes('products')) {
+          const count = this.parseProductCount(text);
+          if (count > 0) {
+            productCount = count;
+            return false;
+          }
+        }
+      });
+    }
 
     logger.info(`Successfully scraped with Cheerio - Product count: ${productCount}`);
     return productCount;
@@ -83,7 +105,8 @@ class WebScraper {
 
   parseProductCount(text) {
     if (!text) return 0;
-    const match = text.match(/\((\d+)\)/);
+    // Match numbers in parentheses like (24) or just numbers like "24 results"
+    const match = text.match(/\((\d+)\)/) || text.match(/(\d+)\s+(results|products)/i);
     return match ? parseInt(match[1], 10) : 0;
   }
 

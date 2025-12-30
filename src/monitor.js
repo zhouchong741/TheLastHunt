@@ -8,7 +8,7 @@ class MonitorManager {
     this.config = config;
     this.scraper = new WebScraper(config);
     this.storage = new DataStorage(config.data_directory);
-    this.notifier = new DingTalkNotifier(config.dingtalk_webhook);
+    this.notifier = new DingTalkNotifier(process.env.DINGTALK_WEBHOOK || config.dingtalk_webhook);
     this.isMonitoring = false;
     this.monitoringTasks = new Map();
   }
@@ -130,8 +130,8 @@ class MonitorManager {
 
     // 设置定时监控
     const intervalMs = this.config.monitoring_interval_minutes * 60 * 1000;
-    const intervalId = setInterval(async() => {
-      if(this.isMonitoring) {
+    const intervalId = setInterval(async () => {
+      if (this.isMonitoring) {
         await this.monitorAllUrls();
       } else {
         clearInterval(intervalId);
@@ -143,37 +143,37 @@ class MonitorManager {
     logger.info(`Monitoring started with ${this.config.monitoring_interval_minutes} minute intervals`);
   }
 
-stopMonitoring() {
-  this.isMonitoring = false;
+  stopMonitoring() {
+    this.isMonitoring = false;
 
-  // 清除所有定时任务
-  for (const [taskName, intervalId] of this.monitoringTasks) {
-    clearInterval(intervalId);
-    logger.info(`Stopped monitoring task: ${taskName}`);
+    // 清除所有定时任务
+    for (const [taskName, intervalId] of this.monitoringTasks) {
+      clearInterval(intervalId);
+      logger.info(`Stopped monitoring task: ${taskName}`);
+    }
+
+    this.monitoringTasks.clear();
+    logger.info('All monitoring stopped');
   }
 
-  this.monitoringTasks.clear();
-  logger.info('All monitoring stopped');
-}
-
   async manualRefresh() {
-  logger.info('Executing manual refresh');
-  return await this.monitorAllUrls();
-}
+    logger.info('Executing manual refresh');
+    return await this.monitorAllUrls();
+  }
 
   async testNotification() {
-  logger.info('Testing notification system');
-  return await this.notifier.sendTestNotification();
-}
+    logger.info('Testing notification system');
+    return await this.notifier.sendTestNotification();
+  }
 
-getStatus() {
-  return {
-    isMonitoring: this.isMonitoring,
-    monitoringUrls: this.config.monitoring_urls.length,
-    intervalMinutes: this.config.monitoring_interval_minutes,
-    activeTasks: this.monitoringTasks.size
-  };
-}
+  getStatus() {
+    return {
+      isMonitoring: this.isMonitoring,
+      monitoringUrls: this.config.monitoring_urls.length,
+      intervalMinutes: this.config.monitoring_interval_minutes,
+      activeTasks: this.monitoringTasks.size
+    };
+  }
 }
 
 module.exports = MonitorManager;

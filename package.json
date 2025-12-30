@@ -1,0 +1,19 @@
+{
+  "name": "thelasthunt-monitor",
+  "version": "1.0.0",
+  "description": "A system to monitor product counts on The Last Hunt",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "refresh": "node src/manual-refresh.js",
+    "test": "node -e \"const MonitorManager = require('./src/monitor'); const config = require('./config.json'); const monitor = new MonitorManager(config); monitor.testNotification();\""
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cheerio": "^1.0.0-rc.12",
+    "winston": "^3.11.0",
+    "xmldom": "^0.6.0",
+    "xpath": "^0.0.33"
+  }
+}

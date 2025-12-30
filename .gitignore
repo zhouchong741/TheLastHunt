@@ -86,8 +86,11 @@ public
 .dynamodb/
 
 # Data files
-data/
+!data/
 *.json
+!package.json
+!config.json
+!data/*.json
 
 # IDE files
 .vscode/
