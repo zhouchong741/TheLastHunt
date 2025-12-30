@@ -2,19 +2,23 @@
     "monitoring_urls": [
         {
             "name": "Patagonia Products",
-            "url": "https://www.thelasthunt.com/c/patagonia"
+            "url": "https://www.thelasthunt.com/c/patagonia",
+            "xpath": "//*[@id=\"product-listing\"]/div[1]/div[1]/div[1]/span/p"
         },
         {
             "name": "Icebreaker Products",
-            "url": "https://www.thelasthunt.com/c/icebreaker"
+            "url": "https://www.thelasthunt.com/c/icebreaker",
+            "xpath": "//*[@id=\"product-listing\"]/div[1]/div[1]/div[1]/span/p"
         },
         {
             "name": "The North Face Products",
-            "url": "https://www.thelasthunt.com/c/the-north-face"
+            "url": "https://www.thelasthunt.com/c/the-north-face",
+            "xpath": "//*[@id=\"product-listing\"]/div[1]/div[1]/div[1]/span/p"
         },
         {
             "name": "MountainHardwear Products",
-            "url": "https://www.thelasthunt.com/c/mountain-hardwear"
+            "url": "https://www.thelasthunt.com/c/mountain-hardwear",
+            "xpath": "//*[@id=\"product-listing\"]/div[1]/div[1]/div[1]/span/p"
         }
     ],
     "monitoring_interval_minutes": 30,

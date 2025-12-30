@@ -57,7 +57,7 @@ class WebScraper {
       const nodes = xpath.select(query, doc);
 
       if (nodes && nodes.length > 0) {
-        const rawText = nodes[0].firstChild.data;
+        const rawText = (nodes[0].textContent || '').trim();
         const productCount = this.parseProductCount(rawText);
         logger.info(`Found product count using XPath: ${productCount}`);
         return productCount;
@@ -106,8 +106,8 @@ class WebScraper {
   parseProductCount(text) {
     if (!text) return 0;
     // Match numbers in parentheses like (24) or just numbers like "24 results"
-    const match = text.match(/\((\d+)\)/) || text.match(/(\d+)\s+(results|products)/i);
-    return match ? parseInt(match[1], 10) : 0;
+    const match = text.replace(/[()]/g, '').match(/(\d+)/);
+    return match ? parseInt(match[0], 10) : 0;
   }
 
   sleep(ms) {
