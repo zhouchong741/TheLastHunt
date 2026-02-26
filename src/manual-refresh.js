@@ -30,6 +30,7 @@ async function manualRefresh() {
       if (result.success) {
         console.log(`   Previous Count: ${result.previousCount}`);
         console.log(`   Current Count: ${result.currentCount}`);
+        console.log(`   Discount > 50%: ${result.discountStats ? result.discountStats.discountOver50Count : 'N/A'}`);
         console.log(`   Changed: ${result.changed ? '✅ Yes' : '❌ No'}`);
         console.log(`   Duration: ${result.duration}ms`);
       } else {

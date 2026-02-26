@@ -21,11 +21,14 @@ class MonitorManager {
       logger.info(`Starting monitoring for: ${name} (${url})`);
 
       // 获取当前产品数量
-      const currentCount = await this.scraper.scrapeProductCount(
+      const scrapeResult = await this.scraper.scrapeProductCount(
         urlInfo, // 传递完整的urlInfo对象
         this.config.max_retries,
         this.config.retry_delay_seconds * 1000
       );
+
+      const currentCount = scrapeResult.count;
+      const discountStats = scrapeResult.discountStats;
 
       // 获取之前的数据
       const previousData = await this.storage.loadData(urlInfo);
@@ -48,7 +51,8 @@ class MonitorManager {
           name,
           oldCount: previousCount, // will be 0 on first run
           newCount: currentCount,
-          timestamp: newData.timestamp
+          timestamp: newData.timestamp,
+          discountStats
         };
 
         await this.notifier.sendNotification(notificationData);
@@ -65,6 +69,7 @@ class MonitorManager {
         name,
         previousCount,
         currentCount,
+        discountStats,
         changed: currentCount !== previousCount,
         duration
       };

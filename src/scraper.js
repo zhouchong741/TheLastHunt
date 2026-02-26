@@ -31,7 +31,13 @@ class WebScraper {
         });
 
         if (xpathQuery) {
-          return this.extractWithXPath(response.data, xpathQuery);
+          // XPath currently only supports count extraction
+          const count = this.extractWithXPath(response.data, xpathQuery);
+
+          // Also extract discounts using XPath based on user request
+          const discountStats = this.extractDiscountStats(response.data);
+
+          return { count, discountStats };
         } else {
           return this.extractWithCheerio(response.data);
         }
@@ -48,7 +54,7 @@ class WebScraper {
     }
 
     logger.error(`Failed to scrape ${url} after ${maxRetries} attempts: ${lastError.message}`);
-    return 0; // 返回0表示获取失败
+    return { count: 0, discountStats: { discountOver50Count: 0 } }; // Return object with 0 count
   }
 
   extractWithXPath(html, query) {
@@ -99,8 +105,42 @@ class WebScraper {
       });
     }
 
-    logger.info(`Successfully scraped with Cheerio - Product count: ${productCount}`);
-    return productCount;
+    // Extract discount stats
+    const discountStats = this.extractDiscountStats(html);
+
+    logger.info(`Successfully scraped with Cheerio - Product count: ${productCount}, Discounts > 50%: ${discountStats.discountOver50Count}`);
+    return { count: productCount, discountStats };
+  }
+
+  extractDiscountStats(html) {
+    let discountOver50Count = 0;
+
+    try {
+      const doc = new DOMParser({ errorHandler: { warning: null, error: null } }).parseFromString(html);
+      // Based on user provided xpath structure: //*[@id="__next"]/main/div/div[5]/div[1]/div/div[5]/div/div[1]/div[1]/article/a/span
+      // We generalize this to find all discount badges within product articles
+      const nodes = xpath.select('//article/a/span', doc);
+
+      if (nodes && nodes.length > 0) {
+        nodes.forEach(node => {
+          const text = (node.textContent || '').trim();
+          // Match percentage numbers, handling potential negative signs like "-30%"
+          const match = text.match(/(\d+)%/);
+          if (match) {
+            const discount = parseInt(match[1], 10);
+            if (discount > 50) {
+              discountOver50Count++;
+            }
+          }
+        });
+      }
+    } catch (error) {
+      logger.error(`Error extracting discount stats: ${error.message}`);
+    }
+
+    return {
+      discountOver50Count
+    };
   }
 
   parseProductCount(text) {
