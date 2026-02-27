@@ -32,22 +32,14 @@ class DingTalkNotifier {
   }
 
   formatMessage(urlData) {
-    const { url, name, oldCount, newCount, timestamp, discountStats } = urlData;
+    const { url, name, oldCount, newCount, timestamp } = urlData;
     const changeType = newCount > oldCount ? '+' : '-';
     const changeAmount = Math.abs(newCount - oldCount);
-
-    let message = `### ${name} 产品数量变化通知
+    return `### ${name} 产品数量变化通知
 > **时间**：${timestamp}  
 > **之前**：${oldCount} 现在：${newCount}  
 > **变化**：(${changeType} ${changeAmount})  
-`;
-
-    // if (discountStats && discountStats.discountOver50Count !== undefined) {
-    //   message += `> **🔥 5折以上**：${discountStats.discountOver50Count}款  \n`;
-    // }
-
-    message += `> [点击查看](${url})`;
-    return message;
+> [点击查看](${url})`;
   }
 
   async sendTestNotification() {
