@@ -19,6 +19,11 @@
             "name": "MountainHardwear Products",
             "url": "https://www.thelasthunt.com/c/mountain-hardwear",
             "xpath": "//*[@id=\"product-listing\"]/div[1]/div[1]/div[1]/span/p"
+        },
+        {
+            "name": "Icebreaker&Patagonia50%",
+            "url": "https://www.thelasthunt.com/c/all?brand_name=icebreaker%2CPatagonia&size_1=S%2CM%2CL&discounted_percent=50%3A&sort=discountDesc",
+            "xpath": "//*[@id=\"product-listing\"]/div[1]/div[1]/div[1]/span/p"
         }
     ],
     "monitoring_interval_minutes": 30,
