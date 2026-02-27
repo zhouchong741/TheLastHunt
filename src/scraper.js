@@ -30,6 +30,12 @@ class WebScraper {
           timeout: 30000
         });
 
+        // Try to extract from Next.js data first (more reliable for this site)
+        const nextDataCount = this.extractFromNextData(response.data);
+        if (nextDataCount > 0) {
+          return nextDataCount;
+        }
+
         if (xpathQuery) {
           return this.extractWithXPath(response.data, xpathQuery);
         } else {
@@ -49,6 +55,60 @@ class WebScraper {
 
     logger.error(`Failed to scrape ${url} after ${maxRetries} attempts: ${lastError.message}`);
     return 0; // 返回0表示获取失败
+  }
+
+  extractFromNextData(html) {
+    try {
+      const $ = cheerio.load(html);
+      let jsonData = null;
+
+      // Find the script containing Next.js props
+      $('script').each((i, el) => {
+        const content = $(el).html();
+        if (content && content.includes('{"props":')) {
+          const startIndex = content.indexOf('{"props":');
+          const jsonStr = content.substring(startIndex);
+          try {
+            jsonData = JSON.parse(jsonStr);
+            return false; // break loop
+          } catch (e) {
+            // ignore parsing errors
+          }
+        }
+      });
+
+      if (jsonData && jsonData.props && jsonData.props.pageProps && jsonData.props.pageProps.serverState) {
+        const serverState = jsonData.props.pageProps.serverState;
+        if (serverState.initialResults) {
+          const results = serverState.initialResults;
+          // Find the key that corresponds to PRODUCTS
+          // Keys look like "PRODUCTS_TLH_en-CA" or similar
+          const productKey = Object.keys(results).find(key => key.includes('PRODUCTS'));
+
+          if (productKey && results[productKey]) {
+            const resultData = results[productKey];
+            // If resultData is an object with nbHits directly
+            if (resultData.nbHits !== undefined) {
+              logger.info(`Found product count from Next.js data: ${resultData.nbHits}`);
+              return resultData.nbHits;
+            }
+            // If resultData has 'results' array (sometimes Algolia returns multiple queries)
+            if (resultData.results && Array.isArray(resultData.results) && resultData.results.length > 0) {
+              const hits = resultData.results[0].nbHits;
+              if (hits !== undefined) {
+                logger.info(`Found product count from Next.js data (nested): ${hits}`);
+                return hits;
+              }
+            }
+          }
+        }
+      }
+
+      return 0;
+    } catch (error) {
+      logger.error(`Error extracting from Next.js data: ${error.message}`);
+      return 0;
+    }
   }
 
   extractWithXPath(html, query) {
