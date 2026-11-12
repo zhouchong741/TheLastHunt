@@ -31,6 +31,13 @@ class DataStorage {
     const tempFilePath = filePath + '.tmp';
 
     try {
+      // 检查既有数据：如果数量未变，直接返回已有记录，避免修改时间戳导致无意义的 Git 提交
+      const existing = await this.loadData(urlInfo);
+      if (existing && existing.product_count === productCount) {
+        logger.info(`Product count unchanged for ${name} (${productCount}), skipping disk write.`);
+        return existing;
+      }
+
       const data = {
         timestamp: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
         product_count: productCount,
@@ -41,7 +48,7 @@ class DataStorage {
       await fs.writeFile(tempFilePath, JSON.stringify(data, null, 2), 'utf8');
       await fs.rename(tempFilePath, filePath);
 
-      logger.info(`Saved data to ${filePath}: ${JSON.stringify(data)}`);
+      logger.info(`Saved updated data to ${filePath}: ${JSON.stringify(data)}`);
       return data;
     } catch (error) {
       logger.error(`Error saving data for ${url}: ${error.message}`);

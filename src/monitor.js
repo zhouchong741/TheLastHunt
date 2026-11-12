@@ -15,7 +15,7 @@ class MonitorManager {
 
   async monitorUrl(urlInfo) {
     const { url, name } = urlInfo;
-    const startTime = Date.now().toLocaleString();
+    const startTime = Date.now();
 
     try {
       logger.info(`Starting monitoring for: ${name} (${url})`);

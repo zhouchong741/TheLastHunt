@@ -1,173 +1,207 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
-const xpath = require('xpath');
-const { DOMParser } = require('xmldom');
 const logger = require('./logger');
 
 class WebScraper {
-  constructor(config) {
+  constructor(config = {}) {
     this.config = config;
-    this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+    this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+    // Algolia 配置（The Last Hunt 官方只读凭据）
+    this.algolia = {
+      appId: process.env.ALGOLIA_APP_ID || config.algolia_app_id || '2YG4O6L95L',
+      apiKey: process.env.ALGOLIA_API_KEY || config.algolia_api_key || 'e8b31524fd0d708f603240f2bfaec48a',
+      indexName: process.env.ALGOLIA_INDEX || config.algolia_index || 'PRODUCTS_TLH_en-CA'
+    };
+  }
+
+  buildAlgoliaParams(url) {
+    try {
+      const parsed = new URL(url);
+      const pathname = parsed.pathname;
+      const searchParams = parsed.searchParams;
+
+      const filters = [];
+      const facetFilters = [];
+
+      // 1. 处理分类路径，如 /c/patagonia 或 /c/all
+      const categoryMatch = pathname.match(/\/c\/([^/?#]+)/);
+      if (categoryMatch) {
+        filters.push(`categories: ${categoryMatch[1]}`);
+      }
+
+      // 2. 处理 search?query=...
+      const query = searchParams.get('query') || '';
+
+      // 3. 处理品牌筛选 brand_name=icebreaker%2CPatagonia
+      const brandParam = searchParams.get('brand_name');
+      if (brandParam) {
+        const brands = brandParam.split(',').map(b => decodeURIComponent(b).trim()).filter(Boolean);
+        if (brands.length > 0) {
+          facetFilters.push(brands.map(b => `attributes.brand_name: ${b}`));
+        }
+      }
+
+      // 4. 处理尺码筛选 size_1=S%2CM%2CL
+      const sizeParam = searchParams.get('size_1');
+      if (sizeParam) {
+        const sizes = sizeParam.split(',').map(s => decodeURIComponent(s).trim()).filter(Boolean);
+        if (sizes.length > 0) {
+          facetFilters.push(sizes.map(s => `attributes.size_1: ${s}`));
+        }
+      }
+
+      // 5. 处理折扣率 discounted_percent=50%3A 或 50:
+      const discountParam = searchParams.get('discounted_percent');
+      if (discountParam) {
+        const discMatch = discountParam.match(/(\d+)/);
+        if (discMatch) {
+          filters.push(`discounted_percent>=${discMatch[1]}`);
+        }
+      }
+
+      const params = new URLSearchParams({
+        hitsPerPage: '0',
+        analytics: 'false',
+        clickAnalytics: 'false'
+      });
+
+      if (query) {
+        params.set('query', query);
+      }
+      if (filters.length > 0) {
+        params.set('filters', filters.join(' AND '));
+      }
+      if (facetFilters.length > 0) {
+        params.set('facetFilters', JSON.stringify(facetFilters));
+      }
+
+      return params.toString();
+    } catch (e) {
+      logger.warn(`Failed to parse Algolia params from URL ${url}: ${e.message}`);
+      return null;
+    }
+  }
+
+  async scrapeWithAlgolia(url) {
+    const params = this.buildAlgoliaParams(url);
+    if (!params) {
+      throw new Error(`Cannot construct Algolia query for ${url}`);
+    }
+
+    const endpoint = `https://${this.algolia.appId.toLowerCase()}-dsn.algolia.net/1/indexes/*/queries`;
+    const response = await axios.post(
+      endpoint,
+      {
+        requests: [
+          {
+            indexName: this.algolia.indexName,
+            params: params
+          }
+        ]
+      },
+      {
+        headers: {
+          'X-Algolia-Application-Id': this.algolia.appId,
+          'X-Algolia-API-Key': this.algolia.apiKey,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+
+    const result = response.data?.results?.[0];
+    if (result && typeof result.nbHits === 'number') {
+      logger.info(`[Algolia] Found product count for ${url}: ${result.nbHits}`);
+      return result.nbHits;
+    }
+
+    throw new Error('Algolia did not return a valid nbHits count');
   }
 
   async scrapeProductCount(urlInfo, maxRetries = 3, retryDelay = 5000) {
-    const { url, xpath: xpathQuery } = urlInfo;
-    let lastError;
+    const { url } = urlInfo;
 
+    // 优先尝试 Algolia API 极速查询
+    try {
+      return await this.scrapeWithAlgolia(url);
+    } catch (algoliaError) {
+      logger.warn(`Algolia direct query failed for ${url}: ${algoliaError.message}; falling back to HTML fetch...`);
+    }
+
+    // Algolia 失败时的备用兜底逻辑：抓取网页并解析 Next.js 数据
+    let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        logger.info(`Attempting to scrape URL: ${url} (Attempt ${attempt}/${maxRetries})`);
+        logger.info(`[Fallback HTML] Scraping URL: ${url} (Attempt ${attempt}/${maxRetries})`);
 
         const response = await axios.get(url, {
           headers: {
             'User-Agent': this.userAgent,
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1'
+            'Accept-Language': 'en-US,en;q=0.5'
           },
           timeout: 30000
         });
 
-        // Try to extract from Next.js data first (more reliable for this site)
         const nextDataCount = this.extractFromNextData(response.data);
-        if (nextDataCount > 0) {
+        if (typeof nextDataCount === 'number' && nextDataCount >= 0) {
           return nextDataCount;
         }
 
-        if (xpathQuery) {
-          return this.extractWithXPath(response.data, xpathQuery);
-        } else {
-          return this.extractWithCheerio(response.data);
-        }
-
+        const cheerioCount = this.extractWithCheerio(response.data);
+        return cheerioCount;
       } catch (error) {
         lastError = error;
         logger.error(`Error scraping ${url} on attempt ${attempt}: ${error.message}`);
-
         if (attempt < maxRetries) {
-          logger.info(`Retrying in ${retryDelay / 1000} seconds...`);
           await this.sleep(retryDelay);
         }
       }
     }
 
     logger.error(`Failed to scrape ${url} after ${maxRetries} attempts: ${lastError.message}`);
-    return 0; // 返回0表示获取失败
+    throw lastError;
   }
 
   extractFromNextData(html) {
     try {
-      const $ = cheerio.load(html);
-      let jsonData = null;
+      const idx = html.indexOf('{"props":');
+      if (idx === -1) return null;
+      const endIdx = html.indexOf('</script>', idx);
+      if (endIdx === -1) return null;
 
-      // Find the script containing Next.js props
-      $('script').each((i, el) => {
-        const content = $(el).html();
-        if (content && content.includes('{"props":')) {
-          const startIndex = content.indexOf('{"props":');
-          const jsonStr = content.substring(startIndex);
-          try {
-            jsonData = JSON.parse(jsonStr);
-            return false; // break loop
-          } catch (e) {
-            // ignore parsing errors
-          }
-        }
-      });
-
-      if (jsonData && jsonData.props && jsonData.props.pageProps && jsonData.props.pageProps.serverState) {
-        const serverState = jsonData.props.pageProps.serverState;
-        if (serverState.initialResults) {
-          const results = serverState.initialResults;
-          // Find the key that corresponds to PRODUCTS
-          // Keys look like "PRODUCTS_TLH_en-CA" or similar
-          const productKey = Object.keys(results).find(key => key.includes('PRODUCTS'));
-
-          if (productKey && results[productKey]) {
-            const resultData = results[productKey];
-            // If resultData is an object with nbHits directly
-            if (resultData.nbHits !== undefined) {
-              logger.info(`Found product count from Next.js data: ${resultData.nbHits}`);
-              return resultData.nbHits;
-            }
-            // If resultData has 'results' array (sometimes Algolia returns multiple queries)
-            if (resultData.results && Array.isArray(resultData.results) && resultData.results.length > 0) {
-              const hits = resultData.results[0].nbHits;
-              if (hits !== undefined) {
-                logger.info(`Found product count from Next.js data (nested): ${hits}`);
-                return hits;
-              }
-            }
-          }
+      const data = JSON.parse(html.substring(idx, endIdx));
+      const initResults = data?.props?.pageProps?.serverState?.initialResults || {};
+      const productKey = Object.keys(initResults).find(k => k.includes('PRODUCTS'));
+      if (productKey && initResults[productKey]) {
+        const prod = initResults[productKey];
+        if (typeof prod.nbHits === 'number') return prod.nbHits;
+        if (Array.isArray(prod.results) && prod.results[0] && typeof prod.results[0].nbHits === 'number') {
+          return prod.results[0].nbHits;
         }
       }
-
-      return 0;
-    } catch (error) {
-      logger.error(`Error extracting from Next.js data: ${error.message}`);
-      return 0;
-    }
-  }
-
-  extractWithXPath(html, query) {
-    try {
-      const doc = new DOMParser({ errorHandler: { warning: null, error: null } }).parseFromString(html);
-      const nodes = xpath.select(query, doc);
-
-      if (nodes && nodes.length > 0) {
-        const rawText = (nodes[0].textContent || '').trim();
-        const productCount = this.parseProductCount(rawText);
-        logger.info(`Found product count using XPath: ${productCount}`);
-        return productCount;
-      } else {
-        logger.warn(`XPath query "${query}" returned no results.`);
-        return 0;
-      }
-    } catch (error) {
-      logger.error(`Error during XPath extraction: ${error.message}`);
-      return 0;
+      return null;
+    } catch (e) {
+      logger.warn(`Next.js JSON parse failed: ${e.message}`);
+      return null;
     }
   }
 
   extractWithCheerio(html) {
     const $ = cheerio.load(html);
-    let productCount = 0;
-
-    // Try to find the count in h1 (common for search results)
-    $('h1').each((i, el) => {
+    let count = 0;
+    $('h1, span, div, p').each((_, el) => {
       const text = $(el).text().trim();
-      const count = this.parseProductCount(text);
-      if (count > 0) {
-        productCount = count;
-        return false; // break loop
+      if (/(\d+)\s*(results?|products?)/i.test(text)) {
+        const match = text.match(/(\d+)/);
+        if (match) {
+          count = parseInt(match[1], 10);
+          return false;
+        }
       }
     });
-
-    // Fallback: search for text containing "results" or "products"
-    if (productCount === 0) {
-      $('span, div, p').each((i, el) => {
-        const text = $(el).text().trim();
-        if (text.includes('results') || text.includes('products')) {
-          const count = this.parseProductCount(text);
-          if (count > 0) {
-            productCount = count;
-            return false;
-          }
-        }
-      });
-    }
-
-    logger.info(`Successfully scraped with Cheerio - Product count: ${productCount}`);
-    return productCount;
-  }
-
-  parseProductCount(text) {
-    if (!text) return 0;
-    // Match numbers in parentheses like (24) or just numbers like "24 results"
-    const match = text.replace(/[()]/g, '').match(/(\d+)/);
-    return match ? parseInt(match[0], 10) : 0;
+    return count;
   }
 
   sleep(ms) {
