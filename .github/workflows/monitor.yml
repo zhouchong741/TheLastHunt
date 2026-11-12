@@ -6,8 +6,8 @@ on:
       - main
       - master
   schedule:
-    # 每5分钟运行一次
-    - cron: '*/5 * * * *'
+    # 避开整点与5分倍数拥堵：每20分钟执行一次（第11, 31, 51分钟）
+    - cron: '11,31,51 * * * *'
   workflow_dispatch:
 
 jobs:
