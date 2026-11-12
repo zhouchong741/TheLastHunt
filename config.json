@@ -26,7 +26,7 @@
             "xpath": "//*[@id=\"product-listing\"]/div[1]/div[1]/div[1]/span/p"
         }
     ],
-    "monitoring_interval_minutes": 30,
+    "monitoring_interval_minutes": 5,
     "max_retries": 3,
     "retry_delay_seconds": 5,
     "dingtalk_webhook": "https://oapi.dingtalk.com/robot/send?access_token=5945ce9476563718586b7134fbe53ff8e501c6d1425c71c67b5a365d27f7995b",
