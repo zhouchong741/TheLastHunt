@@ -29,6 +29,6 @@
     "monitoring_interval_minutes": 5,
     "max_retries": 3,
     "retry_delay_seconds": 5,
-    "dingtalk_webhook": "https://oapi.dingtalk.com/robot/send?access_token=5945ce9476563718586b7134fbe53ff8e501c6d1425c71c67b5a365d27f7995b",
-    "data_directory": "data"
+    "data_directory": "data",
+    "feishu_webhook": "https://open.feishu.cn/open-apis/bot/v2/hook/e6938e11-3931-4c18-94b1-3658335c5f92"
 }

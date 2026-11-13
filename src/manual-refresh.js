@@ -28,9 +28,9 @@ async function manualRefresh() {
       console.log(`   Status: ${result.success ? '✅ Success' : '❌ Failed'}`);
 
       if (result.success) {
-        console.log(`   Previous Count: ${result.previousCount}`);
-        console.log(`   Current Count: ${result.currentCount}`);
-        console.log(`   Changed: ${result.changed ? '✅ Yes' : '❌ No'}`);
+        const diff = result.currentCount - result.previousCount;
+        const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+        console.log(`   变化: ${result.previousCount} -> ${result.currentCount} (${diffStr})`);
         console.log(`   Duration: ${result.duration}ms`);
       } else {
         console.log(`   Error: ${result.error}`);

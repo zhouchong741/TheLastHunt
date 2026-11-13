@@ -1,6 +1,6 @@
 const WebScraper = require('./scraper');
 const DataStorage = require('./storage');
-const DingTalkNotifier = require('./notifier');
+const FeishuNotifier = require('./notifier');
 const logger = require('./logger');
 
 class MonitorManager {
@@ -8,7 +8,7 @@ class MonitorManager {
     this.config = config;
     this.scraper = new WebScraper(config);
     this.storage = new DataStorage(config.data_directory);
-    this.notifier = new DingTalkNotifier(process.env.DINGTALK_WEBHOOK || config.dingtalk_webhook);
+    this.notifier = new FeishuNotifier(process.env.FEISHU_WEBHOOK || config.feishu_webhook);
     this.isMonitoring = false;
     this.monitoringTasks = new Map();
   }
@@ -39,7 +39,9 @@ class MonitorManager {
         if (!previousData) {
           logger.info(`Initial data collected for ${name}: ${currentCount} products. Sending initial notification.`);
         } else {
-          logger.info(`Product count changed for ${name}: ${previousCount} -\u003e ${currentCount}`);
+          const diff = currentCount - previousCount;
+          const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+          logger.info(`Product count changed for ${name}: 变化: ${previousCount} -> ${currentCount} (${diffStr})`);
         }
 
         // 发送通知
